@@ -715,4 +715,30 @@ class onlineCLR_Loss(nn.Module):
         return loss
 
 
+class GCL_TopK_Loss(nn.Module):
+    def __init__(self, world_size=1, temperature=0.01, topk=20):
+        super().__init__()
+        self.world_size = world_size
+        self.temperature = temperature
+        self.topk = topk
+
+    def forward(self, image_feat, text_feat):
+        # cosine similarity
+        logits = image_feat @ text_feat.t() / self.temperature
+
+        # positive = diagonal
+        pos = torch.diag(logits)
+
+        # top-k negatives for each row
+        neg_vals, _ = torch.topk(logits, k=self.topk, dim=1)
+
+        loss_i = -torch.log(
+            torch.exp(pos) /
+            (torch.exp(pos) + torch.exp(neg_vals).sum(dim=1))
+        ).mean()
+
+        return loss_i
+
+
+
 

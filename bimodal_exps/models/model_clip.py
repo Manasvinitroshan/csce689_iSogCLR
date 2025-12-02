@@ -4,7 +4,7 @@ import timm
 from transformers import AutoModel, RobertaModel
 
 from models.losses import CLIP_Loss, CyCLIP_Loss, SogCLR_Loss, VICReg_Loss
-from models.losses import iSogCLR_New_v2_Loss, iSogCLR_New_v1_Loss, onlineCLR_Loss, iSogCLR_New_Loss
+from models.losses import iSogCLR_New_v2_Loss, iSogCLR_New_v1_Loss, onlineCLR_Loss, iSogCLR_New_Loss, GCL_TopK_Loss
 
 import torch
 from torch import nn
@@ -96,6 +96,9 @@ class CLIP(nn.Module):
             self.criterion = iSogCLR_New_v1_Loss(world_size=world_size, gamma=sogclr_gamma, rho_init=rho_init, bsz=bsz)
         elif self.ita_type == 'onlineclr':
             self.criterion = onlineCLR_Loss(world_size=world_size, temperature=self.temp, gamma=sogclr_gamma)
+
+        elif self.ita_type == 'gcl_topk':
+            self.criterion = GCL_TopK_Loss(world_size=world_size, temperature=self.temp, topk=20)
 
         elif self.ita_type == 'isogclr_new':
             self.criterion = iSogCLR_New_Loss(world_size=world_size, gamma=sogclr_gamma, rho_I=rho_I, rho_T=rho_T, tau_init=tau_init, bsz=bsz,
@@ -202,6 +205,11 @@ class CLIP(nn.Module):
             info_dict['avg_image_tau'] = avg_image_tau
 
         elif self.ita_type == 'onlineclr':
+            loss_ita = self.criterion(image_feat, text_feat)
+            info_dict['avg_text_tau'] = 0.0
+            info_dict['avg_image_tau'] = 0.0
+
+        elif self.ita_type == 'gcl_topk':
             loss_ita = self.criterion(image_feat, text_feat)
             info_dict['avg_text_tau'] = 0.0
             info_dict['avg_image_tau'] = 0.0

@@ -88,7 +88,7 @@ def train(model, data_loader, optimizer, tokenizer, epoch, max_epoch, warmup_ste
         
         metric_logger.update(loss_ita=loss_ita.item())
 
-        if args.ita_type in ['sogclr_dro', 'isogclr_new']:
+        if args.ita_type in ['sogclr_dro', 'isogclr_new' ]:
             metric_logger.update(avg_image_tau=info_dict['avg_image_tau'])
             metric_logger.update(avg_text_tau=info_dict['avg_text_tau'])
             metric_logger.update(cur_eta=info_dict['cur_eta'])
@@ -124,6 +124,18 @@ def train(model, data_loader, optimizer, tokenizer, epoch, max_epoch, warmup_ste
             metric_logger.update(b_T=0.0)
             metric_logger.update(v=0.0)
             metric_logger.update(lamda=info_dict['lamda'])
+        elif args.ita_type == 'gcl_topk':
+            metric_logger.update(avg_image_tau=0.0)
+            metric_logger.update(avg_text_tau=0.0)
+            metric_logger.update(cur_eta=0.0)
+            metric_logger.update(grad_tau_image=0.0)
+            metric_logger.update(grad_tau_text=0.0)
+            metric_logger.update(weights_image_pos=0.0)
+            metric_logger.update(weights_text_pos=0.0)
+            metric_logger.update(b_I=0.0)
+            metric_logger.update(b_T=0.0)
+            metric_logger.update(v=0.0)
+            metric_logger.update(lamda=0.0)
         else:
             metric_logger.update(avg_image_tau=info_dict['avg_image_tau'])
             metric_logger.update(avg_text_tau=info_dict['avg_text_tau'])
@@ -655,7 +667,7 @@ if __name__ == '__main__':
 
     # loss config
     parser.add_argument('--ita_type', required=True, choices=['clip', 'cyclip', 'vicreg', 'sogclr', 'sogclr_dro', 
-                        'isogclr_new_v2', 'isogclr_new_v1', 'isogclr_new', 'onlineclr'])
+                        'isogclr_new_v2', 'isogclr_new_v1', 'isogclr_new', 'onlineclr', 'gcl_topk'])
     parser.add_argument('--vicreg_sim_coeff', default=25.0, type=float)
     parser.add_argument('--vicreg_std_coeff', default=25.0, type=float)
     parser.add_argument('--sogclr_gamma', default=0.8, type=float)
