@@ -36,6 +36,7 @@ class CLIP(nn.Module):
                  use_temp_net = True,
                  alpha = 1.0,
                  distributed=True,
+                 topk = 5,
                  ):
         super().__init__()
 
@@ -98,7 +99,7 @@ class CLIP(nn.Module):
             self.criterion = onlineCLR_Loss(world_size=world_size, temperature=self.temp, gamma=sogclr_gamma)
 
         elif self.ita_type == 'gcl_topk':
-            self.criterion = GCL_TopK_Loss(world_size=world_size, temperature=self.temp, topk=20)
+            self.criterion = GCL_TopK_Loss(world_size=world_size, temperature=self.temp, topk=topk)
 
         elif self.ita_type == 'isogclr_new':
             self.criterion = iSogCLR_New_Loss(world_size=world_size, gamma=sogclr_gamma, rho_I=rho_I, rho_T=rho_T, tau_init=tau_init, bsz=bsz,

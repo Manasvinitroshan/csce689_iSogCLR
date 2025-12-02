@@ -448,7 +448,7 @@ def main(args):
                   world_size=args.world_size, ita_type=args.ita_type, sogclr_gamma=args.sogclr_gamma, rho_I=args.rho_I, rho_T=args.rho_T, tau_init=args.tau_init,
                   eta_init=args.eta_init, beta_u=args.beta_u, temp=args.temp, learnable_temp=args.learnable_temp,
                   vicreg_sim_coeff=args.vicreg_sim_coeff, vicreg_std_coeff=args.vicreg_std_coeff, personalized_tau=args.personalized_tau, 
-                  use_temp_net=args.isogclr_temp_net, alpha=args.alpha, distributed=args.distributed)
+                  use_temp_net=args.isogclr_temp_net, alpha=args.alpha, distributed=args.distributed, topk=args.topk)
     model = model.to(device)
 
     if args.evaluate or args.ita_type == 'isogclr_denoise':
@@ -675,6 +675,7 @@ if __name__ == '__main__':
     parser.add_argument('--rho_T', default=8.0, type=float)
     parser.add_argument('--eta_init', default=0.001, type=float)
     parser.add_argument('--tau_init', default=0.01, type=float)
+    parser.add_argument('--topk', default=5, type=int, help='Top-K for GCL-TopK')
     parser.add_argument('--beta_u', default=0.9, type=float)
     parser.add_argument('--temp', default=0.01, type=float)
     parser.add_argument('--learnable_temp', action='store_true')
