@@ -716,28 +716,66 @@ class onlineCLR_Loss(nn.Module):
 
 
 class GCL_TopK_Loss(nn.Module):
-    def __init__(self, world_size=1, temperature=0.01, topk=20):
+    def __init__(self, world_size=1, temperature=0.05, topk=5):
         super().__init__()
         self.world_size = world_size
-        self.temperature = temperature
+        self.temp = temperature
         self.topk = topk
+        self.log_softmax = nn.LogSoftmax(dim=-1)
 
-    def forward(self, image_feat, text_feat):
-        # cosine similarity
-        logits = image_feat @ text_feat.t() / self.temperature
+    def forward(self, image_features, text_features):
+        if self.world_size > 1:
+            image_features = torch.cat(GatherLayer.apply(image_features), dim=0)
+            text_features = torch.cat(GatherLayer.apply(text_features), dim=0)
 
-        # positive = diagonal
-        pos = torch.diag(logits)
+        # Normalize
+        image_features = F.normalize(image_features, dim=-1)
+        text_features = F.normalize(text_features, dim=-1)
 
-        # top-k negatives for each row
-        neg_vals, _ = torch.topk(logits, k=self.topk, dim=1)
+        # Compute similarity
+        logits_per_image = image_features @ text_features.t() / self.temp
+        logits_per_text = text_features @ image_features.t() / self.temp
 
-        loss_i = -torch.log(
-            torch.exp(pos) /
-            (torch.exp(pos) + torch.exp(neg_vals).sum(dim=1))
-        ).mean()
+        # 🔒 Stability: clamp logits to prevent exp overflow
+        logits_per_image = logits_per_image.clamp(min=-50, max=50)
+        logits_per_text = logits_per_text.clamp(min=-50, max=50)
 
-        return loss_i
+        # Ground truth labels
+        batch_size = image_features.size(0)
+        labels = torch.arange(batch_size, device=image_features.device)
+
+        # ---- TOP-K NEGATIVE MINING ----
+        with torch.no_grad():
+            # Remove diagonal positives
+            mask = torch.ones_like(logits_per_image).bool()
+            mask.fill_diagonal_(False)
+            neg_logits_img = logits_per_image[mask].view(batch_size, -1)
+            neg_logits_txt = logits_per_text[mask].view(batch_size, -1)
+
+            # --- Take hardest negative top-K ---
+            topk_img_vals, _ = torch.topk(neg_logits_img, self.topk, dim=-1)
+            topk_txt_vals, _ = torch.topk(neg_logits_txt, self.topk, dim=-1)
+
+        # 🔒 Clamp again for safety
+        topk_img_vals = topk_img_vals.clamp(min=-50, max=50)
+        topk_txt_vals = topk_txt_vals.clamp(min=-50, max=50)
+
+        # --- Build final logits: [positive | top-K negatives] ---
+        pos_img = logits_per_image[torch.arange(batch_size), labels].unsqueeze(1)
+        pos_txt = logits_per_text[torch.arange(batch_size), labels].unsqueeze(1)
+        logits_img = torch.cat([pos_img, topk_img_vals.detach()], dim=1)
+        logits_txt = torch.cat([pos_txt, topk_txt_vals.detach()], dim=1)
+
+        # Targets always 0 (positive at index 0)
+        targets = torch.zeros(batch_size, dtype=torch.long, device=logits_img.device)
+
+        # Cross entropy
+        loss_img = F.cross_entropy(logits_img, targets)
+        loss_txt = F.cross_entropy(logits_txt, targets)
+
+        loss = (loss_img + loss_txt) / 2
+
+        return loss
 
 
 
